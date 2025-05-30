@@ -1,0 +1,16 @@
+# Ignore environment variable files
+.env
+.env.local
+.env.*.local
+
+# Ignore OS/system files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE folders
+.vscode/
+.idea/
+
+# Ignore Python/Node-related files (depending on your project)
+__pycache__/
+node_modules/

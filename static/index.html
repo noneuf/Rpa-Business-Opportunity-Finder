@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPA Opportunity Finder</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #0f172a;
+      color: #ec850f;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .fade-in {
+      animation: fadeIn 1s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .loader {
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-top: 4px solid #38bdf8;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .gradient-button {
+      background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      transition: transform 0.1s ease-in-out, box-shadow 0.3s;
+    }
+    .gradient-button:hover {
+      box-shadow: 0 0 15px rgba(96, 165, 250, 0.6);
+    }
+    .gradient-button:active {
+      transform: scale(0.97);
+    }
+    .download-button {
+      background: linear-gradient(90deg, #22c55e 0%, #eab308 100%);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      transition: transform 0.1s ease-in-out, box-shadow 0.3s;
+    }
+    .download-button:hover {
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.6);
+    }
+    .download-button:active {
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+<body class="p-6">
+  <div class="max-w-2xl mx-auto bg-slate-900 p-6 rounded-2xl shadow-xl fade-in">
+    <h1 class="text-2xl font-bold mb-4 text-orange-400">🔎 RPA Opportunity Finder</h1>
+
+    <label class="block mb-2 text-sm font-semibold text-orange-300">Company Website URL</label>
+    <input type="text" id="url-input" placeholder="https://example.com" class="w-full p-2 mb-4 rounded bg-slate-800 text-slate-100">
+
+    <label class="block mb-2 text-sm font-semibold text-orange-300">GPT Model</label>
+    <select id="model-select" class="w-full p-2 mb-4 rounded bg-slate-800 text-slate-100"></select>
+
+    <label class="block mb-2 text-sm font-semibold text-orange-300">Custom Prompt</label>
+    <textarea id="prompt-textarea" class="w-full p-2 mb-4 h-32 rounded bg-slate-800 text-slate-100">
+For each of the following webpages, determine if it describes a business process or workflow that could be automated with RPA. If yes, summarize the RPA opportunity in one sentence.
+Respond ONLY with a JSON array using this exact format:
+[{"url": "...", "summary": "...", "rpa_opportunity": "..."}]
+    </textarea>
+
+    <div class="flex justify-center mt-4">
+      <button onclick="startCrawl()" id="start-button" class="gradient-button">🚀 Start Analysis</button>
+    </div>
+    <div class="flex justify-center mt-2">
+      <button onclick="stopCrawl()" id="stop-button" class="gradient-button bg-red-500 hover:bg-red-600 hidden">🛑 Stop</button>
+    </div>
+
+    <div id="loading" class="text-center mt-6 hidden">
+      <div class="loader"></div>
+      <p class="mt-2 text-slate-300">🔄 We are working on it... please wait.</p>
+    </div>
+
+    <div class="text-center mt-6">
+      <a id="download-link" href="/#" style="display:none;">
+        <div class="flex justify-center">
+        <button class="download-button">📥 Download Excel</button>
+      </div>
+      </a>
+    </div>
+  </div>
+
+  <script>
+    async function loadModels() {
+      const res = await fetch('/models');
+      const data = await res.json();
+      console.log(data);
+      const select = document.getElementById('model-select');
+      data.models.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = model;
+        select.appendChild(option);
+      });
+    }
+
+    async function startCrawl() {
+      const url = document.getElementById('url-input').value;
+      const prompt = document.getElementById('prompt-textarea').value;
+      const model = document.getElementById('model-select').value;
+
+      if (!url || !prompt || !model) return alert("Please fill in all fields");
+
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('start-button').classList.add('hidden');
+      document.getElementById('stop-button').classList.remove('hidden');
+      document.getElementById('download-link').style.display = 'none';
+
+      controller = new AbortController();
+      const res = await fetch('/start', {
+        signal: controller.signal,
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ url, prompt, model })
+      });
+
+      const data = await res.json();
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('start-button').classList.remove('hidden');
+      document.getElementById('stop-button').classList.add('hidden');
+
+      if (data.status === 'done') {
+        const downloadLink = document.getElementById('download-link');
+        downloadLink.href = data.download_url;
+        downloadLink.style.display = 'inline-block';
+      } else {
+        alert("No results found or something went wrong.");
+      }
+    }
+
+    loadModels();
+  let controller;
+
+    function stopCrawl() {
+      if (controller) {
+        controller.abort();
+        document.getElementById('loading').classList.add('hidden');
+        alert("Process stopped.");
+        document.getElementById('start-button').classList.remove('hidden');
+        document.getElementById('stop-button').classList.add('hidden');
+        controller = null;
+      }
+    }
+</script>
+</body>
+</html>
